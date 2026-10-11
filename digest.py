@@ -43,14 +43,19 @@ from reportlab.platypus import (
 
 IST = timezone(timedelta(hours=5, minutes=30))
 HERE = Path(__file__).parent
-USER_AGENT = "Mozilla/5.0 (compatible; DailyBusinessDigest/1.0; personal RSS reader)"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/128.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5",
+    "Accept-Language": "en-IN,en;q=0.9",
+}
 SUMMARY_CHARS = 420
 
 
 # ---------------------------------------------------------------- fetching
 
 def fetch(url):
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=30) as resp:
         return resp.read()
 
@@ -78,13 +83,19 @@ def parse_date(value):
     return dt
 
 
-def parse_feed(data):
+def parse_feed(data, via_google_news=False):
     root = ET.fromstring(data)
     items = []
     for item in root.iter("item"):
         title = clean_text(item.findtext("title"))
         link = (item.findtext("link") or "").strip()
         summary = clean_text(item.findtext("description"))
+        if via_google_news:
+            # Google News titles end with " - <Publisher>"; its description only repeats the title.
+            source = clean_text(item.findtext("source"))
+            if source and title.endswith(" - " + source):
+                title = title[: -len(source) - 3].strip()
+            summary = ""
         published = parse_date(item.findtext("pubDate"))
         if title and link:
             items.append({"title": title, "link": link, "summary": summary, "published": published})
@@ -101,11 +112,17 @@ def collect(feeds, lookback_hours):
     for paper, sections in feeds.items():
         seen = set()
         paper_sections[paper] = {}
-        for section, url in sections.items():
-            try:
-                items = parse_feed(fetch(url))
-            except Exception as exc:  # one bad feed must not stop the digest
-                errors.append(f"{paper} / {section}: {exc}")
+        for section, urls in sections.items():
+            # A section may list several URLs: the publisher's feed first, then fallbacks.
+            items = None
+            for url in [urls] if isinstance(urls, str) else urls:
+                try:
+                    items = parse_feed(fetch(url), via_google_news="news.google.com" in url)
+                    break
+                except Exception as exc:  # one bad feed must not stop the digest
+                    print(f"WARN {paper} / {section}: {url}: {exc}")
+            if items is None:
+                errors.append(f"{paper} / {section}")
                 continue
             kept = []
             for it in items:
@@ -219,7 +236,7 @@ def send_email(pdf_path, paper_sections, total):
     if not sender or not password:
         print("GMAIL_ADDRESS / GMAIL_APP_PASSWORD not set; skipping email.")
         return False
-    recipients = [r.strip() for r in os.environ.get("MAIL_TO", sender).split(",") if r.strip()]
+    recipients = [r.strip() for r in (os.environ.get("MAIL_TO") or sender).split(",") if r.strip()]
     today = datetime.now(IST).strftime("%d %b %Y")
 
     lines = [f"Good morning! Today's digest has {total} stories.", ""]
@@ -250,7 +267,7 @@ def main():
     lookback = int(os.environ.get("LOOKBACK_HOURS", "26"))
     paper_sections, errors = collect(feeds, lookback)
     for e in errors:
-        print("WARN", e)
+        print("UNAVAILABLE", e)
 
     out_dir = HERE / "output"
     out_dir.mkdir(exist_ok=True)
