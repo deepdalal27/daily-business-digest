@@ -7,8 +7,21 @@ Every morning at about **7:30 AM IST**, GitHub Actions collects the previous
 - Business Standard
 - Financial Express
 
-It builds a PDF with each story's headline, the publisher's summary, the time
-and a link to the full article, then emails it to you. This runs on GitHub's
+It builds a **Daily Market Briefing** PDF and emails it to you:
+
+- **Page 1 – "Before the market opens"**: the high-importance headlines, grouped
+  by theme (RBI & Macro, Markets & Flows, Regulation & Tax, Global Cues,
+  Earnings & Corporate, IPOs, Sectors).
+- **High Importance**: news that can move the Nifty, rates, the rupee or a
+  large-cap (RBI policy, CPI/GDP, FII flows, SEBI/tax rules, US Fed, Nifty-50
+  results). Full summaries.
+- **Medium Importance**: stock-, sector- and IPO-specific news, brokerage
+  calls, order wins, corporate actions. Short summaries.
+- **Low Importance**: personal finance, lifestyle and other background news.
+  Headlines only.
+
+A story carried by several papers appears once (e.g. "ET + BS"). Every
+headline links to the full article. This runs on GitHub's
 servers, so your computer can be switched off.
 
 ## One-time setup (about 5 minutes)
@@ -42,6 +55,12 @@ download **business-digest** under *Artifacts*.
 - **Sections / feeds**: edit `feeds.json` (newspaper → section → RSS URL).
 - **Time**: edit the `cron` line in `.github/workflows/daily-digest.yml`
   (times are UTC; IST = UTC + 5:30).
+
+## Tuning the importance ranking
+
+Ranking is done by keyword rules in `importance.py`, with no paid AI. Each rule
+has a weight; a story scoring 7+ is High and 3–6 is Medium. Raise or lower a
+weight, or add a company or keyword, to change how stories are ranked.
 
 ## Cost
 
