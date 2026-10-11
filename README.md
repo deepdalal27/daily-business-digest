@@ -25,9 +25,9 @@ to be done by you.
 
    | Name                 | Value                                   |
    |----------------------|-----------------------------------------|
-   | `GMAIL_ADDRESS`      | `deepuploads27@gmail.com`               |
+   | `GMAIL_ADDRESS`      | `golemk16@gmail.com`                    |
    | `GMAIL_APP_PASSWORD` | the 16-letter app password from step 2  |
-   | `MAIL_TO`            | `deepuploads27@gmail.com` (optional; comma-separate several addresses) |
+   | `MAIL_TO`            | optional: send to other address(es), comma separated; defaults to `GMAIL_ADDRESS` |
 
 4. **Test it now**: *Actions → Daily Business Digest → Run workflow*.
    The email should arrive within a couple of minutes.
