@@ -1,0 +1,24 @@
+{
+  "The Economic Times": {
+    "Top Stories": "https://economictimes.indiatimes.com/rssfeedstopstories.cms",
+    "Markets": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+    "Economy": "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms",
+    "Companies": "https://economictimes.indiatimes.com/news/company/rssfeeds/2143429.cms",
+    "Industry": "https://economictimes.indiatimes.com/industry/rssfeeds/13352306.cms",
+    "Wealth": "https://economictimes.indiatimes.com/wealth/rssfeeds/837555174.cms"
+  },
+  "Business Standard": {
+    "Latest": "https://www.business-standard.com/rss/latest.rss",
+    "Markets": "https://www.business-standard.com/rss/markets-106.rss",
+    "Economy": "https://www.business-standard.com/rss/economy-102.rss",
+    "Companies": "https://www.business-standard.com/rss/companies-101.rss",
+    "Finance": "https://www.business-standard.com/rss/finance-103.rss"
+  },
+  "Financial Express": {
+    "Latest": "https://www.financialexpress.com/feed/",
+    "Markets": "https://www.financialexpress.com/market/feed/",
+    "Economy": "https://www.financialexpress.com/economy/feed/",
+    "Industry": "https://www.financialexpress.com/industry/feed/",
+    "Money": "https://www.financialexpress.com/money/feed/"
+  }
+}

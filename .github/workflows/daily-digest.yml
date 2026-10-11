@@ -1,0 +1,42 @@
+name: Daily Business Digest
+
+on:
+  schedule:
+    # 01:45 UTC = 07:15 IST. GitHub can delay scheduled runs by a few minutes,
+    # so starting a little early gets the mail in by about 7:30 AM IST.
+    - cron: "45 1 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y -qq fonts-dejavu-core
+          pip install -r requirements.txt
+
+      - name: Build and email digest
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python digest.py
+
+      - name: Keep PDF as a downloadable artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: business-digest
+          path: output/*.pdf
+          retention-days: 30
