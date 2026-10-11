@@ -39,7 +39,7 @@ RULES = [
     ("Fiscal & Govt Policy", 3, r"\bcabinet (approves|clears)\b|\bpli\b|government (approves|plans|notifies)|\bnotification\b"),
     ("RBI Policy", 4, r"\brbi\b|reserve bank"),
     # --- markets and flows
-    ("Index Move", 4, r"\bsensex\b|\bnifty\b|bank nifty|dalal street|stock market today|market (crash|rally|wrap|close)|india vix"),
+    ("Index Move", 5, r"\bsensex\b|\bnifty\b|bank nifty|dalal street|stock market today|market (crash|rally|wrap|close)|india vix"),
     ("Sharp Move", 2, r"\b(crash|plunge|tank|bloodbath|sell-?off|record (high|low)|all-time (high|low)|lifetime low|surge|soar|tumble|jump)s?\b"),
     ("FII/DII Flows", 5, r"\bfiis?\b|\bfpis?\b|\bdiis?\b|foreign (portfolio )?investors?|foreign (fund )?(outflow|inflow)s?"),
     ("Rupee & Bonds", 5, r"\brupee\b|\binr\b|bond yields?|\bg-?secs?\b|10-year|treasury yield"),
@@ -90,10 +90,11 @@ _COMPILED = [(cat, w, re.compile(p, re.I)) for cat, w, p in RULES]
 
 def score(title, summary=""):
     """Return (score, tier, categories sorted by contribution, theme)."""
-    best = {}
+    best, in_title = {}, set()
     for cat, weight, rx in _COMPILED:
         if rx.search(title):
             pts = weight
+            in_title.add(cat)
         elif summary and rx.search(summary):
             pts = weight / 2
         else:
@@ -108,7 +109,8 @@ def score(title, summary=""):
         total -= NOISE_PENALTY
 
     tier = HIGH if total >= HIGH_AT else MEDIUM if total >= MEDIUM_AT else LOW
-    cats = sorted(best, key=lambda c: -best[c])
-    theme_cats = [c for c in cats if c not in ("Large Cap", "Sharp Move")]
-    theme = CATEGORY_THEME.get(theme_cats[0], OTHER_THEME) if theme_cats else OTHER_THEME
+    # Headline matches describe the story better than summary matches, so they lead.
+    cats = sorted(best, key=lambda c: (c not in in_title, -best[c]))
+    theme_cats = [c for c in cats if c in in_title and c not in ("Large Cap", "Sharp Move")]
+    theme = CATEGORY_THEME[theme_cats[0]] if theme_cats else OTHER_THEME
     return total, tier, cats, theme

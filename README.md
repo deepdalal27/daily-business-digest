@@ -7,18 +7,20 @@ Every morning at about **7:30 AM IST**, GitHub Actions collects the previous
 - Business Standard
 - Financial Express
 
-It builds a **Daily Market Briefing** PDF and emails it to you:
+It builds a **Daily Market Briefing** PDF in an institutional research-note
+style and emails it to you:
 
-- **Page 1 – "Before the market opens"**: the high-importance headlines, grouped
-  by theme (RBI & Macro, Markets & Flows, Regulation & Tax, Global Cues,
-  Earnings & Corporate, IPOs, Sectors).
+- **Page 1 – dashboard**: High / Medium / Low counts, estimated read time, a
+  headline-tone gauge, the three stories that matter most today, and a
+  heat-map of where the news is concentrated (RBI & Macro, Markets & Flows,
+  Regulation & Tax, Global Cues, Earnings & Corporate, IPOs, Sectors).
 - **High Importance**: news that can move the Nifty, rates, the rupee or a
   large-cap (RBI policy, CPI/GDP, FII flows, SEBI/tax rules, US Fed, Nifty-50
   results). Full summaries.
 - **Medium Importance**: stock-, sector- and IPO-specific news, brokerage
   calls, order wins, corporate actions. Short summaries.
 - **Low Importance**: personal finance, lifestyle and other background news.
-  Headlines only.
+  Headlines only, in two columns.
 
 A story carried by several papers appears once (e.g. "ET + BS"). Every
 headline links to the full article. This runs on GitHub's
@@ -61,6 +63,13 @@ download **business-digest** under *Artifacts*.
 Ranking is done by keyword rules in `importance.py`, with no paid AI. Each rule
 has a weight; a story scoring 7+ is High and 3–6 is Medium. Raise or lower a
 weight, or add a company or keyword, to change how stories are ranked.
+
+## Files
+
+- `digest.py` – fetches feeds, ranks stories, sends the email
+- `importance.py` – the High / Medium / Low ranking rules
+- `layout.py` – the PDF design
+- `fonts/` – Carlito and Caladea (SIL Open Font License)
 
 ## Cost
 

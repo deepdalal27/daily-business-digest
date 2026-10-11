@@ -1,0 +1,5 @@
+Carlito and Caladea are licensed under the SIL Open Font License, Version 1.1.
+https://openfontlicense.org
+
+Carlito: Copyright (c) 2010-2013 by tyPoland Lukasz Dziedzic with Reserved Font Name "Carlito".
+Caladea: Copyright 2012 The Caladea Project Authors (https://github.com/huertatipografica/Caladea).

@@ -27,21 +27,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import importance
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (
-    HRFlowable,
-    KeepTogether,
-    PageBreak,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-)
+import layout
 
 IST = timezone(timedelta(hours=5, minutes=30))
 HERE = Path(__file__).parent
@@ -192,143 +178,46 @@ def by_theme(items):
 
 # ---------------------------------------------------------------- PDF
 
-def register_fonts():
-    base = Path("/usr/share/fonts/truetype/dejavu")
-    try:
-        pdfmetrics.registerFont(TTFont("Body", base / "DejaVuSans.ttf"))
-        pdfmetrics.registerFont(TTFont("Body-Bold", base / "DejaVuSans-Bold.ttf"))
-        return "Body", "Body-Bold"
-    except Exception:
-        return "Helvetica", "Helvetica-Bold"
-
-
-def esc(text):
-    return html.escape(text, quote=True)
-
-
-def shorten(text, limit):
-    if len(text) <= limit:
-        return text
-    return text[:limit].rsplit(" ", 1)[0] + "…"
-
-
-READ_MORE = '<font color="#1f5fa8">Read full article →</font>'
-TIER_COLOURS = {importance.HIGH: "#b42318", importance.MEDIUM: "#b54708", importance.LOW: "#475467"}
-TIER_NOTES = {
-    importance.HIGH: "Can move the Nifty, rates, the rupee or a large-cap today. Read these first.",
-    importance.MEDIUM: "Stock-, sector- or IPO-specific news worth knowing before the open.",
-    importance.LOW: "Background reading. Headlines only; tap to open.",
-}
-
-
 def build_pdf(tiers, errors, out_path):
-    font, bold = register_fonts()
-    navy = colors.HexColor("#14213d")
-    grey = colors.HexColor("#555555")
-    s = {
-        "masthead": ParagraphStyle("m", fontName=bold, fontSize=22, leading=26, alignment=TA_CENTER, textColor=navy),
-        "sub": ParagraphStyle("sb", fontName=bold, fontSize=11, leading=14, alignment=TA_CENTER, textColor=grey),
-        "dateline": ParagraphStyle("d", fontName=font, fontSize=9, leading=13, alignment=TA_CENTER, textColor=grey),
-        "h1": ParagraphStyle("h1", fontName=bold, fontSize=13, leading=17, textColor=navy, spaceBefore=6, spaceAfter=3),
-        "tier": ParagraphStyle("t", fontName=bold, fontSize=17, leading=21, spaceAfter=2),
-        "note": ParagraphStyle("n", fontName=font, fontSize=8.5, leading=11, textColor=grey, spaceAfter=4),
-        "theme": ParagraphStyle("th", fontName=bold, fontSize=11.5, leading=15, textColor=navy, spaceBefore=8, spaceAfter=4),
-        "headline": ParagraphStyle("h", fontName=bold, fontSize=10.2, leading=13.2),
-        "summary": ParagraphStyle("b", fontName=font, fontSize=8.8, leading=11.8, textColor=colors.HexColor("#222222")),
-        "meta": ParagraphStyle("mt", fontName=font, fontSize=7.3, leading=9.5, textColor=grey),
-        "brief": ParagraphStyle("br", fontName=font, fontSize=9.3, leading=12.5, leftIndent=10, bulletIndent=0, spaceAfter=2),
-        "low": ParagraphStyle("lo", fontName=font, fontSize=8.3, leading=11, leftIndent=10, bulletIndent=0, spaceAfter=1),
-        "body": ParagraphStyle("bd", fontName=font, fontSize=9.5, leading=13),
-    }
-
-    def link(it, text):
-        return f'<link href="{esc(it["link"])}">{text}</link>'
-
-    def source(it):
-        papers = [PAPER_CODES.get(it["paper"], it["paper"])] + [PAPER_CODES.get(p, p) for p in it["also"]]
-        when = it["published"].astimezone(IST).strftime("%d %b %I:%M %p") if it["published"] else ""
-        return f'{" + ".join(papers)} · {esc(it["section"])} · {when}'
-
-    def tags(it):
-        return " · ".join(c for c in it["cats"][:3])
-
-    now = datetime.now(IST)
-    counts = {t: len(v) for t, v in tiers.items()}
-    story = [
-        Paragraph("Daily Market Briefing", s["masthead"]),
-        Paragraph("for the Indian equity investor", s["sub"]),
-        Paragraph(now.strftime("%A, %d %B %Y") + " &nbsp;|&nbsp; The Economic Times · Business Standard · Financial Express", s["dateline"]),
-        Spacer(1, 3 * mm),
-        HRFlowable(width="100%", thickness=1.5, color=navy),
-        Spacer(1, 2 * mm),
-        Paragraph(
-            f'<font color="{TIER_COLOURS["High"]}"><b>{counts["High"]} High</b></font> &nbsp;·&nbsp; '
-            f'<font color="{TIER_COLOURS["Medium"]}"><b>{counts["Medium"]} Medium</b></font> &nbsp;·&nbsp; '
-            f'<font color="{TIER_COLOURS["Low"]}"><b>{counts["Low"]} Low</b></font> importance stories '
-            "from the last 24 hours (same story in several papers is shown once).", s["body"]),
-    ]
-
-    # Page 1: the morning-meeting view, the top stories per theme.
-    story.append(Paragraph("Before the market opens: what matters today", s["h1"]))
-    top = tiers["High"][:15] or tiers["Medium"][:10]
-    for theme, items in by_theme(top):
-        story.append(Paragraph(esc(theme), s["theme"]))
-        for it in items:
-            story.append(Paragraph(link(it, esc(it["title"])) +
-                                   f' <font size="7" color="#667085">({source(it).split(" · ")[0]})</font>',
-                                   s["brief"], bulletText="•"))
-    story.append(Spacer(1, 3 * mm))
-    story.append(Paragraph(
-        "How stories are ranked: each headline is scored by rules a fund manager uses to triage news. "
-        "RBI policy, inflation/GDP, FII flows, SEBI and tax rules, the US Fed, the rupee and Nifty-50 earnings "
-        "rank highest; personal finance, gadgets and lifestyle rank lowest. Keyword based, so verify before acting. "
-        "This is a news summary, not investment advice.", s["meta"]))
-    if errors:
-        story.append(Paragraph("Feeds unavailable today: " + esc(", ".join(errors)), s["meta"]))
-
-    for tier in (importance.HIGH, importance.MEDIUM, importance.LOW):
-        items = tiers[tier]
-        if not items:
-            continue
-        story.append(PageBreak())
-        story.append(Paragraph(f'<font color="{TIER_COLOURS[tier]}">{tier} Importance</font> '
-                               f'<font size="11" color="#667085">({len(items)} stories)</font>', s["tier"]))
-        story.append(Paragraph(TIER_NOTES[tier], s["note"]))
-        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(TIER_COLOURS[tier])))
-
-        for theme, group in by_theme(items):
-            story.append(Paragraph(esc(theme), s["theme"]))
-            for it in group:
-                if tier == importance.LOW:
-                    story.append(Paragraph(link(it, esc(it["title"])) +
-                                           f' <font size="6.8" color="#667085">{source(it)}</font>',
-                                           s["low"], bulletText="–"))
-                    continue
-                limit = 480 if tier == importance.HIGH else 260
-                block = [Paragraph(link(it, esc(it["title"])), s["headline"])]
-                summary = it["summary"]
-                if summary and normalise(summary) != normalise(it["title"]):
-                    block.append(Paragraph(esc(shorten(summary, limit)), s["summary"]))
-                block.append(Paragraph(f'{source(it)} &nbsp;|&nbsp; <i>{esc(tags(it))}</i> &nbsp; '
-                                       f'{link(it, READ_MORE)}', s["meta"]))
-                block.append(Spacer(1, 2.2 * mm))
-                story.append(KeepTogether(block))
-
-    def footer(canvas, doc):
-        canvas.saveState()
-        canvas.setFont(font, 7.5)
-        canvas.setFillColor(grey)
-        canvas.drawString(15 * mm, 10 * mm, "Daily Market Briefing · " + now.strftime("%d %b %Y") + " · Not investment advice")
-        canvas.drawRightString(A4[0] - 15 * mm, 10 * mm, f"Page {doc.page}")
-        canvas.restoreState()
-
-    doc = SimpleDocTemplate(str(out_path), pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm,
-                            topMargin=14 * mm, bottomMargin=18 * mm, title="Daily Market Briefing")
-    doc.build(story, onFirstPage=footer, onLaterPages=footer)
-    return sum(counts.values())
+    layout.build(tiers, errors, out_path, PAPER_CODES, IST)
+    return sum(len(v) for v in tiers.values())
 
 
 # ---------------------------------------------------------------- email
+
+def email_html(tiers):
+    """A short, styled email body: counts and the high-importance headlines."""
+    e = lambda t: html.escape(t, quote=True)
+    high, medium, low = tiers[importance.HIGH], tiers[importance.MEDIUM], tiers[importance.LOW]
+    today = datetime.now(IST).strftime("%A, %d %B %Y")
+
+    def tile(label, n, colour):
+        return (f'<td style="padding:10px 12px;background:#F4F6FA;border-top:3px solid {colour};">'
+                f'<div style="font-size:10px;font-weight:bold;color:#667085;letter-spacing:.5px">{label}</div>'
+                f'<div style="font-size:24px;font-weight:bold;color:{colour};font-family:Georgia,serif">{n}</div></td>')
+
+    rows = "".join(
+        f'<tr><td style="padding:10px 0 10px 12px;border-left:3px solid #B42318;border-bottom:1px solid #E4E7EC">'
+        f'<div style="font-size:10px;font-weight:bold;color:#B42318;letter-spacing:.5px">{e(it["theme"].upper())}</div>'
+        f'<a href="{e(it["link"])}" style="font-size:15px;font-weight:bold;color:#1A1D23;text-decoration:none">{e(it["title"])}</a>'
+        f'<div style="font-size:11px;color:#667085">{e(PAPER_CODES.get(it["paper"], it["paper"]))}</div></td></tr>'
+        for it in (high or medium)[:10])
+    label = "High importance" if high else "Top stories"
+    return f"""<html><body style="margin:0;background:#ffffff;font-family:Calibri,Arial,sans-serif;color:#1A1D23">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto">
+<tr><td style="background:#0B1F3A;padding:20px 22px;border-bottom:4px solid #C9A227">
+<div style="color:#C9A227;font-size:11px;font-weight:bold;letter-spacing:1px">MORNING BRIEF · INDIAN EQUITIES</div>
+<div style="color:#ffffff;font-size:26px;font-family:Georgia,serif;font-weight:bold;margin-top:4px">Daily Market Briefing</div>
+<div style="color:#C8D3E6;font-size:13px;margin-top:4px">{today}</div></td></tr>
+<tr><td style="padding:16px 0"><table width="100%" cellspacing="6" cellpadding="0"><tr>
+{tile("HIGH", len(high), "#B42318")}{tile("MEDIUM", len(medium), "#B54708")}{tile("LOW", len(low), "#475467")}
+</tr></table></td></tr>
+<tr><td style="font-size:12px;font-weight:bold;color:#667085;letter-spacing:.5px;padding-bottom:4px">{label.upper()}</td></tr>
+<tr><td><table width="100%" cellspacing="0" cellpadding="0">{rows}</table></td></tr>
+<tr><td style="padding:16px 0;font-size:13px">The full briefing, with every story ranked and summarised, is in the attached PDF.</td></tr>
+<tr><td style="font-size:11px;color:#98A2B3;padding-bottom:20px">News summary from public RSS feeds, ranked by keyword rules. Not investment advice.</td></tr>
+</table></body></html>"""
+
 
 def send_email(pdf_path, tiers, total):
     sender = os.environ.get("GMAIL_ADDRESS", "").strip()
@@ -354,6 +243,7 @@ def send_email(pdf_path, tiers, total):
     msg["From"] = sender
     msg["To"] = ", ".join(recipients)
     msg.set_content("\n".join(lines))
+    msg.add_alternative(email_html(tiers), subtype="html")
     msg.add_attachment(pdf_path.read_bytes(), maintype="application", subtype="pdf", filename=pdf_path.name)
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=60) as smtp:
