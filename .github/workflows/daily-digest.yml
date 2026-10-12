@@ -2,29 +2,55 @@ name: Daily Business Digest
 
 on:
   schedule:
-    # 01:45 UTC = 07:15 IST. GitHub can delay scheduled runs by a few minutes,
-    # so starting a little early gets the mail in by about 7:30 AM IST.
-    - cron: "45 1 * * *"
+    # GitHub runs scheduled jobs on a best-effort basis and sometimes skips one,
+    # so the briefing is attempted four times (07:07, 07:22, 07:37 and 07:52 IST).
+    # The first attempt that succeeds sends the email; later ones see that and skip.
+    - cron: "37 1 * * *"
+    - cron: "52 1 * * *"
+    - cron: "7 2 * * *"
+    - cron: "22 2 * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
 
 jobs:
   digest:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Skip if today's briefing already went out
+        id: guard
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          today=$(TZ=Asia/Kolkata date +%F)
+          sent=$(gh run list -R "$GITHUB_REPOSITORY" -w daily-digest.yml --event schedule --status success \
+                   --limit 20 --json createdAt \
+                   --jq "[.[] | select((.createdAt | fromdate + 19800 | strftime(\"%Y-%m-%d\")) == \"$today\")] | length")
+          echo "Scheduled briefings already sent today ($today IST): $sent"
+          if [ "$sent" -gt 0 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
       - uses: actions/checkout@v5
+        if: steps.guard.outputs.skip != 'true'
 
       - uses: actions/setup-python@v6
+        if: steps.guard.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        if: steps.guard.outputs.skip != 'true'
         run: pip install -r requirements.txt
 
       - name: Build and email digest
+        if: steps.guard.outputs.skip != 'true'
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -32,7 +58,7 @@ jobs:
         run: python digest.py
 
       - name: Keep PDF as a downloadable artifact
-        if: always()
+        if: always() && steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v5
         with:
           name: business-digest

@@ -55,8 +55,11 @@ download **business-digest** under *Artifacts*.
 ## Customising
 
 - **Sections / feeds**: edit `feeds.json` (newspaper → section → RSS URL).
-- **Time**: edit the `cron` line in `.github/workflows/daily-digest.yml`
-  (times are UTC; IST = UTC + 5:30).
+- **Time**: edit the `cron` lines in `.github/workflows/daily-digest.yml`
+  (times are UTC; IST = UTC + 5:30). GitHub runs schedules on a best-effort
+  basis and occasionally skips one, so the workflow tries four times between
+  7:07 and 7:52 AM IST; the first successful attempt sends the email and the
+  rest skip themselves.
 
 ## Tuning the importance ranking
 
